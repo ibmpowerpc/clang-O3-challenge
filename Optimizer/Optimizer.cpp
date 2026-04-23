@@ -1,11 +1,14 @@
 #include "Optimizer.h"
 
 #include "llvm/ADT/Twine.h"
+#include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO/ModuleInliner.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/LoopStrengthReduce.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
@@ -54,6 +57,67 @@ using namespace opt;
 #define ERR_INITIAL_IR_PARSE_FAILURE 3
 #define ERR_LLVM_INIT 4
 #define ERR_OPT 5
+
+#define BUILD_SUM1_PIPELINE(FPM)                                               \
+  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(EarlyCSEPass());                                                 \
+  FPM.addPass(ReassociatePass());                                              \
+  FPM.addPass(LoopSimplifyPass());                                             \
+  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));         \
+  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
+  FPM.addPass(InstCombinePass());                                              \
+  FPM.addPass(LoopVectorizePass());                                            \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(GVNPass())
+
+#define BUILD_SUM2_PIPELINE(FPM)                                               \
+  /* TODO: возможно нужен DCE, потому что в коде есть неиспользуемая \
+   * переменная j*/                                                  \
+  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(EarlyCSEPass());                                                 \
+  FPM.addPass(ReassociatePass());                                              \
+  FPM.addPass(InstCombinePass());                                              \
+  FPM.addPass(LoopSimplifyPass());                                             \
+  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
+  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(GVNPass());                                                      \
+  FPM.addPass(LoopSimplifyPass());                                             \
+  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));      \
+  FPM.addPass(LoopVectorizePass());                                            \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(GVNPass());
+
+#define BUILD_SUM3_PIPELINE(FPM)                                               \
+  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(EarlyCSEPass());                                                 \
+  FPM.addPass(ReassociatePass());                                              \
+  FPM.addPass(InstCombinePass());                                              \
+  FPM.addPass(LoopSimplifyPass());                                             \
+  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
+  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
+  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(GVNPass());                                                      \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass(true)));  \
+  FPM.addPass(LoopVectorizePass());                                            \
+  FPM.addPass(SimplifyCFGPass());                                              \
+  FPM.addPass(GVNPass())
+
+#define BUILD_SUM4_PIPELINE(FPM)
+/* TODO:*/
 
 static cl::opt<bool> Verbose("verbose", cl::init(false));
 
@@ -128,46 +192,6 @@ bool Optimizer::optimizeIR() {
       return false;
     }
   } else {
-
-#define BUILD_SUM1_PIPELINE(FPM)                                               \
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(EarlyCSEPass());                                                 \
-  FPM.addPass(ReassociatePass());                                              \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));         \
-  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LoopVectorizePass());                                            \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(GVNPass())
-
-#define BUILD_SUM2_PIPELINE(FPM)                                               \
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(EarlyCSEPass());                                                 \
-  FPM.addPass(ReassociatePass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
-  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(GVNPass());                                                      \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
-  FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));      \
-  FPM.addPass(LoopVectorizePass());                                            \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(GVNPass());
-#define BUILD_SUM3_PIPELINE(FPM)
-/* TODO:*/
-#define BUILD_SUM4_PIPELINE(FPM)
-    /* TODO:*/
 
     FunctionPassManager FPM;
     switch (detectBenchmarkKind(TheModule)) {
