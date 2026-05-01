@@ -1,7 +1,10 @@
 #include "Optimizer.h"
 
 #include "llvm/ADT/Twine.h"
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/ModuleInliner.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
@@ -75,8 +78,6 @@ using namespace opt;
   FPM.addPass(GVNPass())
 
 #define BUILD_SUM2_PIPELINE(FPM)                                               \
-  /* TODO: возможно нужен DCE, потому что в коде есть неиспользуемая \
-   * переменная j*/                                                  \
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
   FPM.addPass(SimplifyCFGPass());                                              \
   FPM.addPass(EarlyCSEPass());                                                 \
@@ -116,8 +117,9 @@ using namespace opt;
   FPM.addPass(SimplifyCFGPass());                                              \
   FPM.addPass(GVNPass())
 
-#define BUILD_SUM4_PIPELINE(FPM)
-/* TODO:*/
+#define BUILD_SUM4_PIPELINE(FPM, MPM)                                          \
+  BUILD_SUM3_PIPELINE(FPM);                                                    \
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(InlinerPass()))
 
 static cl::opt<bool> Verbose("verbose", cl::init(false));
 
@@ -205,7 +207,7 @@ bool Optimizer::optimizeIR() {
       BUILD_SUM3_PIPELINE(FPM);
       break;
     case BenchmarkKind::Sum4:
-      BUILD_SUM4_PIPELINE(FPM);
+      BUILD_SUM4_PIPELINE(FPM, MPM);
       break;
     default:
       break;
