@@ -67,8 +67,6 @@ using namespace opt;
   FPM.addPass(EarlyCSEPass());                                                 \
   FPM.addPass(ReassociatePass());                                              \
   FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
   FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
   FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
   FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
@@ -76,11 +74,9 @@ using namespace opt;
   FPM.addPass(InstCombinePass());                                              \
   FPM.addPass(GVNPass());                                                      \
   FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
   FPM.addPass(LoopVectorizePass());                                            \
   FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass());
+  FPM.addPass(InstCombinePass());
 
 #define BUILD_SUM2_PIPELINE(FPM)                                               \
   /*Added loop unswitching*/                                                   \
@@ -89,7 +85,6 @@ using namespace opt;
   FPM.addPass(EarlyCSEPass());                                                 \
   FPM.addPass(ReassociatePass());                                              \
   FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LoopSimplifyPass());                                             \
   FPM.addPass(LCSSAPass());                                                    \
   FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
   FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
@@ -98,12 +93,10 @@ using namespace opt;
   FPM.addPass(InstCombinePass());                                              \
   FPM.addPass(GVNPass());                                                      \
   FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LCSSAPass());                                                    \
   FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));      \
   FPM.addPass(LoopVectorizePass());                                            \
   FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass());
+  FPM.addPass(InstCombinePass());
 
 #define BUILD_SUM3_PIPELINE(FPM)                                               \
   /*Added non-trivial unswitching*/                                            \
@@ -112,7 +105,6 @@ using namespace opt;
   FPM.addPass(EarlyCSEPass());                                                 \
   FPM.addPass(ReassociatePass());                                              \
   FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LoopSimplifyPass());                                             \
   FPM.addPass(LCSSAPass());                                                    \
   FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
   FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
@@ -120,13 +112,11 @@ using namespace opt;
   FPM.addPass(SimplifyCFGPass());                                              \
   FPM.addPass(InstCombinePass());                                              \
   FPM.addPass(GVNPass());                                                      \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(LCSSAPass());                                                    \
+  FPM.addPass(LoopSimplifyPass());                                             \
   FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass(true)));  \
   FPM.addPass(LoopVectorizePass());                                            \
   FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass())
+  FPM.addPass(InstCombinePass());
 
 #define BUILD_SUM4_PIPELINE(FPM, MPM)                                          \
   BUILD_SUM2_PIPELINE(FPM);                                                    \
