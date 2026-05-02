@@ -118,7 +118,7 @@ using namespace opt;
   FPM.addPass(GVNPass())
 
 #define BUILD_SUM4_PIPELINE(FPM, MPM)                                          \
-  BUILD_SUM3_PIPELINE(FPM);                                                    \
+  BUILD_SUM2_PIPELINE(FPM);                                                    \
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(InlinerPass()))
 
 static cl::opt<bool> Verbose("verbose", cl::init(false));
