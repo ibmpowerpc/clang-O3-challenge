@@ -61,67 +61,6 @@ using namespace opt;
 #define ERR_LLVM_INIT 4
 #define ERR_OPT 5
 
-#define BUILD_SUM1_PIPELINE(FPM)                                               \
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(EarlyCSEPass());                                                 \
-  FPM.addPass(ReassociatePass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
-  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass());                                                      \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(LoopVectorizePass());                                            \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());
-
-#define BUILD_SUM2_PIPELINE(FPM)                                               \
-  /*Added loop unswitching*/                                                   \
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(EarlyCSEPass());                                                 \
-  FPM.addPass(ReassociatePass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LCSSAPass());                                                    \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
-  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass());                                                      \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass()));      \
-  FPM.addPass(LoopVectorizePass());                                            \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());
-
-#define BUILD_SUM3_PIPELINE(FPM)                                               \
-  /*Added non-trivial unswitching*/                                            \
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));                               \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(EarlyCSEPass());                                                 \
-  FPM.addPass(ReassociatePass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(LCSSAPass());                                                    \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));              \
-  FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true)); \
-  FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));          \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());                                              \
-  FPM.addPass(GVNPass());                                                      \
-  FPM.addPass(LoopSimplifyPass());                                             \
-  FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass(true)));  \
-  FPM.addPass(LoopVectorizePass());                                            \
-  FPM.addPass(SimplifyCFGPass());                                              \
-  FPM.addPass(InstCombinePass());
-
-#define BUILD_SUM4_PIPELINE(FPM, MPM)                                          \
-  BUILD_SUM2_PIPELINE(FPM);                                                    \
-  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(InlinerPass()))
-
 static cl::opt<bool> Verbose("verbose", cl::init(false));
 
 static cl::alias VerboseAlias("v", cl::desc("alias for --verbose"),
@@ -135,26 +74,6 @@ static cl::opt<bool>
     DebugPM("debug-pass-manager", cl::Hidden,
             cl::desc("Print pass management debugging information"),
             cl::init(false));
-
-enum class BenchmarkKind {
-  Sum1,
-  Sum2,
-  Sum3,
-  Sum4,
-  Other,
-};
-
-static BenchmarkKind detectBenchmarkKind(const Module &M) {
-  if (M.getFunction("sum_1"))
-    return BenchmarkKind::Sum1;
-  if (M.getFunction("sum_2"))
-    return BenchmarkKind::Sum2;
-  if (M.getFunction("sum_3"))
-    return BenchmarkKind::Sum3;
-  if (M.getFunction("sum_4"))
-    return BenchmarkKind::Sum4;
-  return BenchmarkKind::Other;
-}
 
 bool Optimizer::optimizeIR() {
   if (!createTargetMachine())
@@ -197,22 +116,24 @@ bool Optimizer::optimizeIR() {
   } else {
 
     FunctionPassManager FPM;
-    switch (detectBenchmarkKind(TheModule)) {
-    case BenchmarkKind::Sum1:
-      BUILD_SUM1_PIPELINE(FPM);
-      break;
-    case BenchmarkKind::Sum2:
-      BUILD_SUM2_PIPELINE(FPM);
-      break;
-    case BenchmarkKind::Sum3:
-      BUILD_SUM3_PIPELINE(FPM);
-      break;
-    case BenchmarkKind::Sum4:
-      BUILD_SUM4_PIPELINE(FPM, MPM);
-      break;
-    default:
-      break;
-    }
+    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(ReassociatePass());
+    FPM.addPass(InstCombinePass());
+    FPM.addPass(LCSSAPass());
+    FPM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
+    FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass(LICMOptions()), true));
+    FPM.addPass(createFunctionToLoopPassAdaptor(IndVarSimplifyPass()));
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(InstCombinePass());
+    FPM.addPass(GVNPass());
+    FPM.addPass(LoopSimplifyPass());
+    FPM.addPass(createFunctionToLoopPassAdaptor(SimpleLoopUnswitchPass(true)));
+    FPM.addPass(LoopVectorizePass());
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(InstCombinePass());
+    MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(InlinerPass()));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
   MPM.addPass(VerifierPass());
