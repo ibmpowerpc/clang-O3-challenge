@@ -118,7 +118,7 @@ bool Optimizer::optimizeIR() {
     FunctionPassManager FPM;
     FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(SimplifyCFGPass());
-    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(EarlyCSEPass(true));
     FPM.addPass(ReassociatePass());
     FPM.addPass(InstCombinePass());
     FPM.addPass(LCSSAPass());
